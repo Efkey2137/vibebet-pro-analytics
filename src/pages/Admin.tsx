@@ -12,12 +12,32 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
-import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3 } from 'lucide-react';
+import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
 const pricingTiers = ['Free', '10 PLN', '20 PLN', '40 PLN', '75 PLN', '100 PLN'];
+
+// Szybkie typy
+const quickPicks = [
+  "1", "X", "2", 
+  "1X", "X2", "12", 
+  "HWEH", "AWEH", 
+  "Over 1.5 Goals", "Over 2.5 Goals", 
+  "BTTS Tak", "BTTS Nie"
+];
 
 interface TierStats {
   tier: string;
@@ -42,10 +62,8 @@ export default function Admin() {
   const [homeTeam, setHomeTeam] = useState('');
   const [awayTeam, setAwayTeam] = useState('');
   const [league, setLeague] = useState('');
-  const [matchDate, setMatchDate] = useState('');
   const [pick, setPick] = useState('');
   const [odds, setOdds] = useState('');
-  const [stake, setStake] = useState('5');
   const [pricingTier, setPricingTier] = useState('Free');
   const [analysis, setAnalysis] = useState('');
   const [isBetBuilder, setIsBetBuilder] = useState(false);
@@ -95,17 +113,13 @@ export default function Admin() {
         ? (wonTips.length / settledTips.length) * 100 
         : 0;
       
-      // Calculate profit/loss in units
       let profitLoss = 0;
       tierTips.forEach(tip => {
         if (tip.status === 'Won') profitLoss += (tip.odds - 1) * tip.stake;
         if (tip.status === 'Lost') profitLoss -= tip.stake;
       });
       
-      // Calculate total staked
       const totalStaked = settledTips.reduce((acc, tip) => acc + tip.stake, 0);
-      
-      // Calculate yield
       const yieldPercent = totalStaked > 0 ? (profitLoss / totalStaked) * 100 : 0;
 
       return {
@@ -131,10 +145,10 @@ export default function Admin() {
         home_team: homeTeam,
         away_team: awayTeam,
         league,
-        match_date: new Date(matchDate).toISOString(),
+        match_date: new Date().toISOString(),
         pick,
         odds: parseFloat(odds),
-        stake: parseInt(stake),
+        stake: 10,
         pricing_tier: pricingTier as "Free" | "10 PLN" | "20 PLN" | "40 PLN" | "75 PLN" | "100 PLN",
         analysis: analysis || null,
         is_bet_builder: isBetBuilder,
@@ -143,14 +157,11 @@ export default function Admin() {
       if (error) throw error;
 
       toast.success('Typ dodany pomyślnie!');
-      // Reset form
       setHomeTeam('');
       setAwayTeam('');
       setLeague('');
-      setMatchDate('');
       setPick('');
       setOdds('');
-      setStake('5');
       setPricingTier('Free');
       setAnalysis('');
       setIsBetBuilder(false);
@@ -161,6 +172,24 @@ export default function Admin() {
       toast.error('Błąd podczas dodawania typu');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // NOWA FUNKCJA: Usuwanie typu
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('tips')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Typ został usunięty');
+      fetchAllTips();
+    } catch (error) {
+      console.error('Error deleting tip:', error);
+      toast.error('Nie udało się usunąć typu');
     }
   };
 
@@ -275,38 +304,43 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Liga</Label>
-                      <Input 
-                        value={league} 
-                        onChange={(e) => setLeague(e.target.value)}
-                        placeholder="np. La Liga"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Data meczu</Label>
-                      <Input 
-                        type="datetime-local"
-                        value={matchDate} 
-                        onChange={(e) => setMatchDate(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
-                    <Label>Typ (Pick)</Label>
+                    <Label>Liga</Label>
                     <Input 
-                      value={pick} 
-                      onChange={(e) => setPick(e.target.value)}
-                      placeholder="np. Real Madryt wygra"
+                      value={league} 
+                      onChange={(e) => setLeague(e.target.value)}
+                      placeholder="np. La Liga"
                       required
                     />
                   </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Typ (Pick)</Label>
+                    
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {quickPicks.map((qp) => (
+                        <Button
+                          key={qp}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => setPick(qp)}
+                        >
+                          {qp}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <Input 
+                      value={pick} 
+                      onChange={(e) => setPick(e.target.value)}
+                      placeholder="Wpisz typ lub wybierz powyżej"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Kurs</Label>
                       <Input 
@@ -318,19 +352,6 @@ export default function Admin() {
                         placeholder="np. 1.85"
                         required
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Stawka (1-10)</Label>
-                      <Select value={stake} onValueChange={setStake}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                            <SelectItem key={n} value={n.toString()}>{n} / 10</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label>Cena</Label>
@@ -386,7 +407,7 @@ export default function Admin() {
                         <div>
                           <p className="font-semibold">{tip.home_team} vs {tip.away_team}</p>
                           <p className="text-sm text-muted-foreground">
-                            {tip.league} • {format(new Date(tip.match_date), 'dd MMM yyyy, HH:mm', { locale: pl })}
+                            {tip.league} • {format(new Date(tip.match_date), 'dd MMM yyyy', { locale: pl })}
                           </p>
                           <p className="text-sm text-primary mt-1">{tip.pick} @ {tip.odds}</p>
                         </div>
@@ -432,6 +453,29 @@ export default function Admin() {
                                 <RotateCcw className="w-4 h-4 mr-1" />
                                 Zwrot
                               </Button>
+
+                              {/* ZMIANA: Przycisk usuwania z potwierdzeniem */}
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Czy na pewno chcesz usunąć ten typ?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tej operacji nie można cofnąć. Typ zostanie trwale usunięty z bazy danych.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDelete(tip.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                      Usuń
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </>
                           )}
                         </div>

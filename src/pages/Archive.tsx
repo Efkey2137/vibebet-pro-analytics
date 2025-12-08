@@ -1,14 +1,24 @@
-import { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { Construction, History } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+
+/*
+import { useEffect, useState } from 'react';
 import { TipCard, Tip } from '@/components/tips/TipCard';
 import { TierFilter } from '@/components/tips/TierFilter';
 import { StatsOverview } from '@/components/tips/StatsOverview';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
+*/
 
 export default function Archive() {
+  const navigate = useNavigate();
+
+  // CAŁA LOGIKA ZAKOMENTOWANA TYMCZASOWO
+  /*
   const [tips, setTips] = useState<Tip[]>([]);
   const [selectedTier, setSelectedTier] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -59,53 +69,37 @@ export default function Archive() {
   const isUnlocked = (tip: Tip) => {
     return tip.pricing_tier === 'Free' || purchasedTipIds.includes(tip.id);
   };
+  */
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       
-      <main className="flex-1 py-12">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h1 className="font-display text-4xl font-bold mb-4">
-              <span className="text-primary">Archiwum</span> Typów
-            </h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Pełna historia naszych rozegranych typów. Transparentność i dowody każdej wygranej.
-            </p>
+      <main className="flex-1 py-12 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="container mx-auto px-4 text-center">
+          
+          <div className="relative w-24 h-24 mx-auto mb-8 flex items-center justify-center">
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse"></div>
+            <div className="relative bg-card border border-primary/30 p-5 rounded-2xl">
+              <History className="w-12 h-12 text-primary" />
+              <div className="absolute -bottom-2 -right-2 bg-background border border-border p-1.5 rounded-lg">
+                <Construction className="w-5 h-5 text-pending" />
+              </div>
+            </div>
           </div>
 
-          {/* Stats */}
-          <div className="mb-12">
-            <StatsOverview tips={tips} />
-          </div>
+          <h1 className="font-display text-4xl font-bold mb-4">
+            Archiwum <span className="text-primary">w Budowie</span>
+          </h1>
+          
+          <p className="text-muted-foreground max-w-lg mx-auto mb-8 text-lg">
+            Właśnie tworzymy historię. Archiwum zostanie udostępnione po rozliczeniu pierwszych typów, aby zapewnić pełną transparentność statystyk.
+          </p>
 
-          {/* Filter */}
-          <div className="mb-8">
-            <TierFilter selectedTier={selectedTier} onTierChange={setSelectedTier} />
-          </div>
+          <Button variant="neon" size="lg" onClick={() => navigate('/')}>
+            Wróć do typów na dziś
+          </Button>
 
-          {/* Tips Grid */}
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : filteredTips.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-muted-foreground">Brak rozegranych typów w tej kategorii</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredTips.map((tip) => (
-                <TipCard 
-                  key={tip.id} 
-                  tip={tip} 
-                  isUnlocked={isUnlocked(tip)}
-                  showBuyButton={false}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </main>
 

@@ -1,10 +1,16 @@
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Lock, CheckCircle2, XCircle, Clock, RotateCcw, Eye, Trophy, Layers } from 'lucide-react';
+import { Lock, CheckCircle2, XCircle, Clock, RotateCcw, Eye, Trophy, Layers, Plus, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface Tip {
   id: string;
@@ -28,7 +34,10 @@ interface TipCardProps {
   tip: Tip;
   isUnlocked: boolean;
   onBuy?: () => void;
+  onRemove?: () => void; // Nowy prop do usuwania
   showBuyButton?: boolean;
+  showBetStatus?: boolean;
+  isAddedToMyTips?: boolean;
 }
 
 const statusConfig = {
@@ -67,17 +76,27 @@ const tierPrices: Record<string, number> = {
   '100 PLN': 100,
 };
 
-export function TipCard({ tip, isUnlocked, onBuy, showBuyButton = true }: TipCardProps) {
+export function TipCard({ 
+  tip, 
+  isUnlocked, 
+  onBuy, 
+  onRemove,
+  showBuyButton = true, 
+  showBetStatus = false,
+  isAddedToMyTips = false 
+}: TipCardProps) {
   const StatusIcon = statusConfig[tip.status].icon;
   const price = tierPrices[tip.pricing_tier] || 0;
   const isFree = tip.pricing_tier === 'Free';
 
+  // Czy typ jest już "posiadany" (w My Tips lub obstawiony na głównej)
+  const isOwned = isAddedToMyTips || showBetStatus;
+
   return (
     <div className={cn(
-      "card-betting rounded-xl p-5 transition-all duration-300 hover:border-primary/30 animate-fade-in",
+      "card-betting rounded-xl p-5 transition-all duration-300 hover:border-primary/30 animate-fade-in flex flex-col justify-between h-full",
       !isUnlocked && !isFree && "relative overflow-hidden"
     )}>
-      {/* Locked Overlay */}
       {!isUnlocked && !isFree && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-3">
           <Lock className="w-8 h-8 text-muted-foreground" />
@@ -90,62 +109,55 @@ export function TipCard({ tip, isUnlocked, onBuy, showBuyButton = true }: TipCar
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            {tip.league}
-          </Badge>
-          {tip.is_bet_builder && (
-            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-              <Layers className="w-3 h-3 mr-1" />
-              Bet Builder
+      <div>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              {tip.league}
             </Badge>
-          )}
+            {tip.is_bet_builder && (
+              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                <Layers className="w-3 h-3 mr-1" />
+                Bet Builder
+              </Badge>
+            )}
+          </div>
+          <Badge className={cn("border", statusConfig[tip.status].badgeClass)}>
+            <StatusIcon className="w-3 h-3 mr-1" />
+            {statusConfig[tip.status].label}
+          </Badge>
         </div>
-        <Badge className={cn("border", statusConfig[tip.status].badgeClass)}>
-          <StatusIcon className="w-3 h-3 mr-1" />
-          {statusConfig[tip.status].label}
-        </Badge>
+
+        <div className="mb-4">
+          <div className="flex items-center gap-2 text-lg font-semibold text-foreground mb-1">
+            <span>{tip.home_team}</span>
+            <span className="text-muted-foreground">vs</span>
+            <span>{tip.away_team}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {format(new Date(tip.match_date), 'dd MMMM yyyy', { locale: pl })}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-secondary/50 rounded-lg p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Typ</p>
+            <p className="text-sm font-semibold text-foreground truncate">{tip.pick}</p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Kurs</p>
+            <p className="text-sm font-semibold text-primary">{tip.odds.toFixed(2)}</p>
+          </div>
+        </div>
+
+        {tip.analysis && (isUnlocked || isFree) && (
+          <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
+            <p className="text-sm text-muted-foreground">{tip.analysis}</p>
+          </div>
+        )}
       </div>
 
-      {/* Match Info */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 text-lg font-semibold text-foreground mb-1">
-          <span>{tip.home_team}</span>
-          <span className="text-muted-foreground">vs</span>
-          <span>{tip.away_team}</span>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {format(new Date(tip.match_date), 'dd MMMM yyyy, HH:mm', { locale: pl })}
-        </p>
-      </div>
-
-      {/* Betting Details */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Typ</p>
-          <p className="text-sm font-semibold text-foreground truncate">{tip.pick}</p>
-        </div>
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Kurs</p>
-          <p className="text-sm font-semibold text-primary">{tip.odds.toFixed(2)}</p>
-        </div>
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Stawka</p>
-          <p className="text-sm font-semibold text-foreground">{tip.stake}/10</p>
-        </div>
-      </div>
-
-      {/* Analysis */}
-      {tip.analysis && (isUnlocked || isFree) && (
-        <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
-          <p className="text-sm text-muted-foreground">{tip.analysis}</p>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-border">
+      <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
         <div className="flex items-center gap-2">
           {isFree ? (
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
@@ -158,29 +170,68 @@ export function TipCard({ tip, isUnlocked, onBuy, showBuyButton = true }: TipCar
           )}
         </div>
 
-        {tip.status === 'Won' && tip.proof_image_url && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="won" size="sm">
-                <Eye className="w-4 h-4 mr-1" />
-                Zobacz Kupon
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-2 text-won">
-                  <Trophy className="w-5 h-5" />
-                  <span className="font-semibold">Wygrany kupon</span>
+        <div className="flex items-center gap-2">
+          {tip.status === 'Won' && tip.proof_image_url && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="won" size="sm" className="h-8">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Kupon
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-2 text-won">
+                    <Trophy className="w-5 h-5" />
+                    <span className="font-semibold">Wygrany kupon</span>
+                  </div>
+                  <img 
+                    src={tip.proof_image_url} 
+                    alt="Dowód wygranej" 
+                    className="max-w-full rounded-lg border border-border"
+                  />
                 </div>
-                <img 
-                  src={tip.proof_image_url} 
-                  alt="Dowód wygranej" 
-                  className="max-w-full rounded-lg border border-border"
-                />
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Logic for Add/Remove Buttons */}
+          {isFree && (
+            isOwned ? (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 text-won hover:text-won hover:bg-won/10 cursor-default px-2">
+                  <Check className="w-4 h-4 mr-1" />
+                  Obstawione
+                </Button>
+                
+                {onRemove && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={onRemove}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Usuń z moich typów</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
-            </DialogContent>
-          </Dialog>
-        )}
+            ) : (
+              onBuy && (
+                <Button variant="outline" size="sm" onClick={onBuy} className="h-8 hover:border-primary hover:text-primary">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Obstawiam
+                </Button>
+              )
+            )
+          )}
+        </div>
       </div>
     </div>
   );

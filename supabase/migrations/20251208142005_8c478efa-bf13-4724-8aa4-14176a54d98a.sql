@@ -144,6 +144,11 @@ CREATE POLICY "Admins can view all purchases"
   ON public.user_purchases FOR SELECT
   USING (public.has_role(auth.uid(), 'admin'));
 
+CREATE POLICY "Users can delete own purchases"
+  ON public.user_purchases
+  FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- Create function to handle new user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER

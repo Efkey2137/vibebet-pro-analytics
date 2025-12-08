@@ -26,40 +26,33 @@ export default function MyTips() {
     if (!user) return;
     
     try {
-      // Get purchased tip IDs
-      const { data: purchases } = await supabase
+      // 1. Pobierz ID typów, które użytkownik "kupił" (płatne) LUB "dodał" (darmowe)
+      // W obu przypadkach są one w tabeli user_purchases
+      const { data: purchases, error: purchaseError } = await supabase
         .from('user_purchases')
         .select('tip_id')
         .eq('user_id', user.id);
 
+      if (purchaseError) throw purchaseError;
+
       const purchasedIds = purchases?.map(p => p.tip_id) || [];
 
-      // Get free tips and purchased tips
-      const { data: freeTips } = await supabase
-        .from('tips')
-        .select('*')
-        .eq('pricing_tier', 'Free')
-        .order('match_date', { ascending: false });
-
-      let purchasedTips: Tip[] = [];
-      if (purchasedIds.length > 0) {
-        const { data } = await supabase
-          .from('tips')
-          .select('*')
-          .in('id', purchasedIds)
-          .order('match_date', { ascending: false });
-        purchasedTips = (data || []) as Tip[];
+      if (purchasedIds.length === 0) {
+        setTips([]);
+        setLoading(false);
+        return;
       }
 
-      // Combine and dedupe
-      const allTips = [...(freeTips as Tip[] || []), ...purchasedTips];
-      const uniqueTips = allTips.filter((tip, index, self) => 
-        index === self.findIndex(t => t.id === tip.id)
-      );
+      // 2. Pobierz szczegóły tych konkretnych typów
+      const { data, error: tipsError } = await supabase
+        .from('tips')
+        .select('*')
+        .in('id', purchasedIds)
+        .order('match_date', { ascending: false });
 
-      setTips(uniqueTips.sort((a, b) => 
-        new Date(b.match_date).getTime() - new Date(a.match_date).getTime()
-      ));
+      if (tipsError) throw tipsError;
+
+      setTips((data || []) as Tip[]);
     } catch (error) {
       console.error('Error fetching tips:', error);
     } finally {
@@ -86,7 +79,7 @@ export default function MyTips() {
               <span className="text-primary">Moje</span> Typy
             </h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Wszystkie Twoje zakupione typy i darmowe typy w jednym miejscu.
+              Tutaj znajdziesz wszystkie typy, które obstawiłeś.
             </p>
           </div>
 
@@ -95,7 +88,7 @@ export default function MyTips() {
               <ShoppingBag className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h2 className="text-xl font-semibold mb-2">Brak typów</h2>
               <p className="text-muted-foreground mb-6">
-                Nie masz jeszcze żadnych typów. Sprawdź naszą ofertę!
+                Nie masz jeszcze żadnych aktywnych kuponów. Przejdź do oferty i wybierz swoje pewniaki!
               </p>
               <Button variant="neon" onClick={() => navigate('/')}>
                 Zobacz typy
@@ -108,8 +101,9 @@ export default function MyTips() {
                 <TipCard 
                   key={tip.id} 
                   tip={tip} 
-                  isUnlocked={true}
+                  isUnlocked={true} // W sekcji "Moje Typy" wszystko jest odblokowane
                   showBuyButton={false}
+                  showBetStatus={true} // Nowa flaga, żeby pokazać "Obstawione"
                 />
               ))}
             </div>

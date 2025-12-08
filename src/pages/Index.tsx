@@ -3,21 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { TipCard, Tip } from '@/components/tips/TipCard';
+import { TierGroupCard } from '@/components/tips/TierGroupCard';
 import { TierFilter } from '@/components/tips/TierFilter';
 import { StatsOverview } from '@/components/tips/StatsOverview';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Zap, Shield, TrendingUp, ChevronRight, Loader2 } from 'lucide-react';
+import { Zap, Shield, TrendingUp, ChevronRight, Loader2, Brain, Cpu, Binary, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 const tierDescriptions: Record<string, { title: string; description: string }> = {
-  'Free': { title: 'Darmowe typy', description: 'Sprawdź nasze umiejętności za darmo' },
-  '10 PLN': { title: 'Standard', description: 'Solidne typy na co dzień' },
-  '20 PLN': { title: 'Premium', description: 'Wyższa jakość, lepsze kursy' },
-  '40 PLN': { title: 'Premium+', description: 'Szczegółowa analiza' },
-  '75 PLN': { title: 'Wysoka Pewność', description: 'Najlepsze okazje' },
-  '100 PLN': { title: 'VIP - Max Confidence', description: 'Gwarantowane emocje' },
+  'Free': { title: 'Darmowe typy', description: 'Idealne na start. Sprawdź naszą skuteczność bez ryzyka.' },
+  '10 PLN': { title: 'Standard', description: 'Solidne, codzienne typy z dobrą analizą.' },
+  '20 PLN': { title: 'Premium', description: 'Wyższa jakość, selekcjonowane mecze i lepsze kursy.' },
+  '40 PLN': { title: 'Premium+', description: 'Szczegółowa analiza i typy o podwyższonym prawdopodobieństwie.' },
+  '75 PLN': { title: 'Wysoka Pewność', description: 'Najlepsze okazje tygodnia. Tylko mocne sygnały.' },
+  '100 PLN': { title: 'VIP - Max Confidence', description: 'Gwarantowane emocje. Nasze najmocniejsze pozycje.' },
 };
 
 export default function Index() {
@@ -38,19 +40,15 @@ export default function Index() {
 
   const fetchTips = async () => {
     try {
-      // Fetch all tips for display (RLS will filter)
       const { data, error } = await supabase
         .from('tips')
         .select('*')
         .order('match_date', { ascending: false });
 
       if (error) throw error;
-      
-      // Cast to Tip type
       const typedData = (data || []) as Tip[];
       setTips(typedData);
       
-      // Also fetch settled tips for stats (free tips only for non-admin)
       const { data: statsData } = await supabase
         .from('tips')
         .select('*')
@@ -66,7 +64,6 @@ export default function Index() {
 
   const fetchPurchases = async () => {
     if (!user) return;
-    
     const { data } = await supabase
       .from('user_purchases')
       .select('tip_id')
@@ -77,15 +74,55 @@ export default function Index() {
     }
   };
 
-  const handleBuyTip = (tip: Tip) => {
+  const handleBuyTip = async (tip: Tip) => {
     if (!user) {
-      toast.error('Musisz być zalogowany, aby kupić typ');
+      toast.error('Musisz być zalogowany, aby dodać typ');
       navigate('/auth');
       return;
     }
-    
-    // In real app, this would integrate with payment gateway
-    toast.info('Funkcja płatności w przygotowaniu');
+
+    if (tip.pricing_tier === 'Free') {
+      try {
+        const { error } = await supabase
+          .from('user_purchases')
+          .insert({
+            user_id: user.id,
+            tip_id: tip.id,
+            amount_paid: 0
+          });
+
+        if (error) throw error;
+
+        toast.success('Typ dodany do Twoich kuponów!');
+        fetchPurchases();
+      } catch (error) {
+        console.error('Error adding tip:', error);
+        toast.error('Błąd podczas dodawania typu');
+      }
+    } else {
+      toast.info('Funkcja płatności w przygotowaniu');
+    }
+  };
+
+  // NOWA FUNKCJA: Usuwanie typu z "Moich"
+  const handleRemoveTip = async (tip: Tip) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_purchases')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('tip_id', tip.id);
+
+      if (error) throw error;
+
+      toast.info('Typ usunięty z Twoich kuponów');
+      fetchPurchases(); // Odśwież listę, aby przycisk zmienił się z powrotem na "Obstawiam"
+    } catch (error) {
+      console.error('Error removing tip:', error);
+      toast.error('Nie udało się usunąć typu');
+    }
   };
 
   const filteredTips = selectedTier === 'all' 
@@ -95,6 +132,20 @@ export default function Index() {
   const isUnlocked = (tip: Tip) => {
     return tip.pricing_tier === 'Free' || purchasedTipIds.includes(tip.id);
   };
+
+  const isAddedToMyTips = (tip: Tip) => {
+    return purchasedTipIds.includes(tip.id);
+  };
+
+  const availableGroups = selectedTier === 'all' 
+    ? Object.entries(tierDescriptions)
+        .map(([tier, info]) => ({
+          tier,
+          ...info,
+          count: tips.filter(t => t.pricing_tier === tier).length
+        }))
+        .filter(group => group.count > 0)
+    : [];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -121,15 +172,78 @@ export default function Index() {
                   <ChevronRight className="w-5 h-5" />
                 </Button>
                 <Button variant="outline" size="xl" onClick={() => document.getElementById('archive')?.scrollIntoView({ behavior: 'smooth' })}>
-                  Zobacz archiwum
+                  Zobacz ofertę
                 </Button>
               </div>
             </div>
           </div>
         </section>
 
+        {/* AI Section */}
+        <section className="py-16 bg-secondary/10 border-y border-primary/20 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-12 opacity-10 blur-3xl bg-primary w-96 h-96 rounded-full -z-10"></div>
+          
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+              <div className="flex-1 space-y-6">
+                <Badge variant="outline" className="border-primary text-primary px-4 py-1 text-sm tracking-wider font-display bg-primary/10">
+                  AI POWERED TECHNOLOGY 2.0
+                </Badge>
+                
+                <h2 className="font-display text-3xl md:text-5xl font-bold leading-tight">
+                  Sztuczna Inteligencja. <br/>
+                  <span className="text-primary">Matematyczna</span> Precyzja.
+                </h2>
+                
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                  Zapomnij o "czutce" i błędach ludzkich. Nasz autorski system 
+                  <span className="text-foreground font-semibold"> VibeBet AI™ </span> 
+                  analizuje ponad 50,000 zmiennych na sekundę. Algorytm nie ma gorszych dni, 
+                  nie kieruje się emocjami. To czysta matematyka i statystyka.
+                </p>
+
+                <div className="grid sm:grid-cols-2 gap-4 pt-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-primary shrink-0" />
+                    <div>
+                      <h4 className="font-semibold text-foreground">Machine Learning</h4>
+                      <p className="text-sm text-muted-foreground">Algorytm uczy się na każdym rozegranym meczu.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-primary shrink-0" />
+                    <div>
+                      <h4 className="font-semibold text-foreground">Zero Emocji</h4>
+                      <p className="text-sm text-muted-foreground">Chłodna kalkulacja prawdopodobieństwa.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 flex justify-center">
+                <div className="relative w-full max-w-sm aspect-square">
+                  <div className="absolute inset-0 bg-primary/20 blur-[60px] rounded-full animate-pulse"></div>
+                  <div className="relative h-full w-full border border-primary/30 rounded-full flex items-center justify-center bg-background/50 backdrop-blur-sm animate-float">
+                    <Brain className="w-32 h-32 text-primary drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]" />
+                    <div className="absolute inset-0 animate-spin-slow">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 p-3 bg-card border border-primary rounded-xl shadow-lg shadow-primary/20">
+                        <Cpu className="w-6 h-6 text-primary" />
+                      </div>
+                    </div>
+                    <div className="absolute inset-0 animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '15s' }}>
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-6 p-3 bg-card border border-primary rounded-xl shadow-lg shadow-primary/20">
+                        <Binary className="w-6 h-6 text-primary" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Features */}
-        <section className="py-16 border-y border-border bg-card/30">
+        <section className="py-16 border-b border-border bg-card/30">
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-3 gap-8">
               {[
@@ -147,15 +261,15 @@ export default function Index() {
           </div>
         </section>
 
-        {/* Stats & Archive */}
+        {/* Live Tips Section */}
         <section id="archive" className="py-16">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="font-display text-3xl font-bold mb-4">
-                Nasze <span className="text-primary">Wyniki</span>
+                Dostępne <span className="text-primary">Zakłady</span>
               </h2>
               <p className="text-muted-foreground">
-                Sprawdź historię naszych typów i statystyki
+                Wybierz kategorię lub przeglądaj wszystkie typy
               </p>
             </div>
 
@@ -164,46 +278,62 @@ export default function Index() {
               <StatsOverview tips={allTipsForStats} />
             </div>
 
-            {/* Tier Descriptions */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-              {Object.entries(tierDescriptions).map(([tier, info]) => (
-                <div 
-                  key={tier}
-                  className="p-3 rounded-lg bg-secondary/30 border border-border text-center"
-                >
-                  <p className="font-semibold text-sm text-foreground">{info.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{info.description}</p>
-                  <p className="text-xs text-primary mt-2 font-medium">
-                    {tier === 'Free' ? 'Za darmo' : tier}
-                  </p>
-                </div>
-              ))}
-            </div>
-
             {/* Filter */}
-            <div className="mb-8">
-              <TierFilter selectedTier={selectedTier} onTierChange={setSelectedTier} />
+            <div className="mb-8 sticky top-20 z-40 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border/50">
+              <div className="flex items-center justify-between">
+                <TierFilter selectedTier={selectedTier} onTierChange={setSelectedTier} />
+                {selectedTier !== 'all' && (
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedTier('all')} className="ml-2">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Wróć do kategorii
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Tips Grid */}
+            {/* Content Grid */}
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
-            ) : filteredTips.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-muted-foreground">Brak typów w tej kategorii</p>
+            ) : selectedTier === 'all' ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availableGroups.length > 0 ? (
+                  availableGroups.map((group) => (
+                    <TierGroupCard 
+                      key={group.tier}
+                      title={group.title}
+                      description={group.description}
+                      count={group.count}
+                      priceLabel={group.tier}
+                      onClick={() => setSelectedTier(group.tier)}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-20">
+                    <p className="text-muted-foreground text-lg">Brak aktywnych typów na ten moment.</p>
+                    <p className="text-sm text-muted-foreground">Zajrzyj ponownie później!</p>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTips.map((tip) => (
-                  <TipCard 
-                    key={tip.id} 
-                    tip={tip} 
-                    isUnlocked={isUnlocked(tip)}
-                    onBuy={() => handleBuyTip(tip)}
-                  />
-                ))}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+                {filteredTips.length === 0 ? (
+                  <div className="col-span-full text-center py-20">
+                    <p className="text-muted-foreground">Brak typów w tej kategorii</p>
+                  </div>
+                ) : (
+                  filteredTips.map((tip) => (
+                    <TipCard 
+                      key={tip.id} 
+                      tip={tip} 
+                      isUnlocked={isUnlocked(tip)}
+                      isAddedToMyTips={isAddedToMyTips(tip)}
+                      onBuy={() => handleBuyTip(tip)}
+                      onRemove={() => handleRemoveTip(tip)} // Dodano obsługę usuwania
+                    />
+                  ))
+                )}
               </div>
             )}
           </div>
