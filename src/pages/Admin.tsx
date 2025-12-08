@@ -24,7 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
-import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3, Trash2 } from 'lucide-react';
+import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3, Trash2, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -68,9 +68,6 @@ export default function Admin() {
   const [analysis, setAnalysis] = useState('');
   const [isBetBuilder, setIsBetBuilder] = useState(false);
   
-  // Settlement state
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
@@ -175,7 +172,6 @@ export default function Admin() {
     }
   };
 
-  // NOWA FUNKCJA: Usuwanie typu
   const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase
@@ -193,36 +189,13 @@ export default function Admin() {
     }
   };
 
-  const handleSettle = async (tipId: string, status: 'Won' | 'Lost' | 'Void', file?: File) => {
+  const handleSettle = async (tipId: string, status: 'Won' | 'Lost' | 'Void') => {
     try {
-      let proofUrl = null;
-      
-      if (status === 'Won' && file) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${tipId}-${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('proof-images')
-          .upload(fileName, file);
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('proof-images')
-          .getPublicUrl(fileName);
-        
-        proofUrl = publicUrl;
-      }
-
-      const updateData: Record<string, unknown> = {
+      const updateData = {
         status,
         settled_at: new Date().toISOString(),
       };
       
-      if (proofUrl) {
-        updateData.proof_image_url = proofUrl;
-      }
-
       const { error } = await supabase
         .from('tips')
         .update(updateData)
@@ -230,16 +203,42 @@ export default function Admin() {
 
       if (error) throw error;
 
-      toast.success(`Typ oznaczony jako ${status === 'Won' ? 'wygrany' : status === 'Lost' ? 'przegrany' : 'zwrot'}`);
+      const statusPL = status === 'Won' ? 'wygrany' : status === 'Lost' ? 'przegrany' : 'zwrot';
+      toast.success(`Typ oznaczony jako ${statusPL}`);
       fetchAllTips();
     } catch (error) {
       console.error('Error settling tip:', error);
       toast.error('Błąd podczas rozliczania typu');
     }
-    setUploadingFor(null);
+  };
+
+  // ZMIANA: Funkcja cofania rozliczenia
+  const handleUnsettle = async (tipId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tips')
+        .update({
+          status: 'Pending',
+          settled_at: null
+        })
+        .eq('id', tipId);
+
+      if (error) throw error;
+
+      toast.info('Cofnięto rozliczenie typu');
+      fetchAllTips();
+    } catch (error) {
+      console.error('Error unsettling tip:', error);
+      toast.error('Błąd podczas cofania rozliczenia');
+    }
   };
 
   const pendingTips = tips.filter(t => t.status === 'Pending');
+  // ZMIANA: Filtrujemy ostatnio rozliczone typy (max 10)
+  const settledTips = tips
+    .filter(t => t.status !== 'Pending')
+    .sort((a, b) => new Date(b.settled_at || '').getTime() - new Date(a.settled_at || '').getTime())
+    .slice(0, 10);
 
   if (authLoading || loading) {
     return (
@@ -393,95 +392,116 @@ export default function Admin() {
 
             {/* Settle Tab */}
             <TabsContent value="settle">
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Typy do rozliczenia</h2>
-                
-                {pendingTips.length === 0 ? (
-                  <div className="card-betting rounded-xl p-8 text-center">
-                    <p className="text-muted-foreground">Brak typów oczekujących na rozliczenie</p>
-                  </div>
-                ) : (
-                  pendingTips.map(tip => (
-                    <div key={tip.id} className="card-betting rounded-xl p-5">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                          <p className="font-semibold">{tip.home_team} vs {tip.away_team}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {tip.league} • {format(new Date(tip.match_date), 'dd MMM yyyy', { locale: pl })}
-                          </p>
-                          <p className="text-sm text-primary mt-1">{tip.pick} @ {tip.odds}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {uploadingFor === tip.id ? (
-                            <div className="flex items-center gap-2">
-                              <Input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleSettle(tip.id, 'Won', file);
-                                }}
-                                className="max-w-48"
-                              />
-                              <Button variant="ghost" size="sm" onClick={() => setUploadingFor(null)}>
-                                Anuluj
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <Button 
-                                variant="won" 
-                                size="sm"
-                                onClick={() => setUploadingFor(tip.id)}
-                              >
-                                <Upload className="w-4 h-4 mr-1" />
-                                Wygrana
-                              </Button>
-                              <Button 
-                                variant="lost" 
-                                size="sm"
-                                onClick={() => handleSettle(tip.id, 'Lost')}
-                              >
-                                <XCircle className="w-4 h-4 mr-1" />
-                                Przegrana
-                              </Button>
-                              <Button 
-                                variant="void" 
-                                size="sm"
-                                onClick={() => handleSettle(tip.id, 'Void')}
-                              >
-                                <RotateCcw className="w-4 h-4 mr-1" />
-                                Zwrot
-                              </Button>
+              <div className="space-y-8">
+                {/* Pending Tips Section */}
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold">Oczekujące na rozliczenie</h2>
+                  
+                  {pendingTips.length === 0 ? (
+                    <div className="card-betting rounded-xl p-8 text-center">
+                      <p className="text-muted-foreground">Brak typów oczekujących na rozliczenie</p>
+                    </div>
+                  ) : (
+                    pendingTips.map(tip => (
+                      <div key={tip.id} className="card-betting rounded-xl p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div>
+                            <p className="font-semibold">{tip.home_team} vs {tip.away_team}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {tip.league} • {format(new Date(tip.match_date), 'dd MMM yyyy', { locale: pl })}
+                            </p>
+                            <p className="text-sm text-primary mt-1">{tip.pick} @ {tip.odds}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="won" 
+                              size="sm"
+                              onClick={() => handleSettle(tip.id, 'Won')}
+                            >
+                              <Upload className="w-4 h-4 mr-1" />
+                              Wygrana
+                            </Button>
+                            <Button 
+                              variant="lost" 
+                              size="sm"
+                              onClick={() => handleSettle(tip.id, 'Lost')}
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Przegrana
+                            </Button>
+                            <Button 
+                              variant="void" 
+                              size="sm"
+                              onClick={() => handleSettle(tip.id, 'Void')}
+                            >
+                              <RotateCcw className="w-4 h-4 mr-1" />
+                              Zwrot
+                            </Button>
 
-                              {/* ZMIANA: Przycisk usuwania z potwierdzeniem */}
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2">
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Czy na pewno chcesz usunąć ten typ?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tej operacji nie można cofnąć. Typ zostanie trwale usunięty z bazy danych.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(tip.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                      Usuń
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </>
-                          )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Czy na pewno chcesz usunąć ten typ?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tej operacji nie można cofnąć. Typ zostanie trwale usunięty z bazy danych.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(tip.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Usuń
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))
+                  )}
+                </div>
+
+                {/* ZMIANA: Sekcja Ostatnio Rozliczone (możliwość cofnięcia missclicka) */}
+                {settledTips.length > 0 && (
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <h2 className="text-xl font-semibold">Ostatnio rozliczone (historia)</h2>
+                    {settledTips.map(tip => (
+                      <div key={tip.id} className="card-betting rounded-xl p-4 opacity-75 hover:opacity-100 transition-opacity">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={
+                                tip.status === 'Won' ? 'text-won' : 
+                                tip.status === 'Lost' ? 'text-lost' : 'text-void'
+                              }>
+                                ● {tip.status === 'Won' ? 'Wygrany' : tip.status === 'Lost' ? 'Przegrany' : 'Zwrot'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(tip.settled_at || ''), 'HH:mm dd.MM')}
+                              </span>
+                            </div>
+                            <p className="font-medium text-sm">{tip.home_team} vs {tip.away_team}</p>
+                            <p className="text-xs text-muted-foreground">{tip.pick} @ {tip.odds}</p>
+                          </div>
+                          
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleUnsettle(tip.id)}
+                            className="shrink-0"
+                          >
+                            <Undo2 className="w-4 h-4 mr-1" />
+                            Cofnij
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </TabsContent>

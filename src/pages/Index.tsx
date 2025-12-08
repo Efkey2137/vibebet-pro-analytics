@@ -28,7 +28,9 @@ export default function Index() {
   const [selectedTier, setSelectedTier] = useState('all');
   const [loading, setLoading] = useState(true);
   const [purchasedTipIds, setPurchasedTipIds] = useState<string[]>([]);
-  const { user } = useAuth();
+  
+  // ZMIANA: Pobieramy isAdmin
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -104,7 +106,6 @@ export default function Index() {
     }
   };
 
-  // NOWA FUNKCJA: Usuwanie typu z "Moich"
   const handleRemoveTip = async (tip: Tip) => {
     if (!user) return;
 
@@ -118,7 +119,7 @@ export default function Index() {
       if (error) throw error;
 
       toast.info('Typ usunięty z Twoich kuponów');
-      fetchPurchases(); // Odśwież listę, aby przycisk zmienił się z powrotem na "Obstawiam"
+      fetchPurchases();
     } catch (error) {
       console.error('Error removing tip:', error);
       toast.error('Nie udało się usunąć typu');
@@ -129,7 +130,9 @@ export default function Index() {
     ? tips 
     : tips.filter(t => t.pricing_tier === selectedTier);
 
+  // ZMIANA: Funkcja sprawdzająca czy typ jest odblokowany (dla Admina zawsze TRUE)
   const isUnlocked = (tip: Tip) => {
+    if (isAdmin) return true; // Admin widzi wszystko
     return tip.pricing_tier === 'Free' || purchasedTipIds.includes(tip.id);
   };
 
@@ -275,7 +278,7 @@ export default function Index() {
 
             {/* Stats Overview */}
             <div className="mb-12">
-              <StatsOverview tips={allTipsForStats} />
+              <StatsOverview tips={allTipsForStats} marketingMode={true} />
             </div>
 
             {/* Filter */}
@@ -327,10 +330,10 @@ export default function Index() {
                     <TipCard 
                       key={tip.id} 
                       tip={tip} 
-                      isUnlocked={isUnlocked(tip)}
+                      isUnlocked={isUnlocked(tip)} // Admin ma tu true
                       isAddedToMyTips={isAddedToMyTips(tip)}
                       onBuy={() => handleBuyTip(tip)}
-                      onRemove={() => handleRemoveTip(tip)} // Dodano obsługę usuwania
+                      onRemove={() => handleRemoveTip(tip)}
                     />
                   ))
                 )}
