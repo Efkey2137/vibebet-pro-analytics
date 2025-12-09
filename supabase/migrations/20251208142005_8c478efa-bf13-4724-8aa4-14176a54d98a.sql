@@ -166,6 +166,11 @@ BEGIN
 END;
 $$;
 
+INSERT INTO public.profiles (id, email, full_name)
+SELECT id, email, raw_user_meta_data->>'full_name'
+FROM auth.users
+WHERE id NOT IN (SELECT id FROM public.profiles);
+
 -- Create trigger for new user signup
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
