@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Lock, CheckCircle2, XCircle, Clock, RotateCcw, Eye, Trophy, Layers, Plus, Check, Trash2 } from 'lucide-react';
+import { Lock, CheckCircle2, XCircle, Clock, RotateCcw, Eye, Trophy, Layers, Plus, Check, Trash2, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -98,14 +98,18 @@ export function TipCard({
       !isUnlocked && !isFree && "relative overflow-hidden"
     )}>
       {!isUnlocked && !isFree && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-3">
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-3 p-4">
           <Lock className="w-8 h-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Typ płatny</span>
-          {showBuyButton && onBuy && (
-            <Button variant="neon" size="sm" onClick={onBuy}>
-              Kup za {price} zł
-            </Button>
-          )}
+          <span className="text-sm text-muted-foreground text-center">Typ płatny - {price} zł</span>
+          <a 
+            href="https://instagram.com/vibebet_lime" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg text-sm font-medium transition-all"
+          >
+            <Instagram className="w-4 h-4" />
+            Kup na IG
+          </a>
         </div>
       )}
 
