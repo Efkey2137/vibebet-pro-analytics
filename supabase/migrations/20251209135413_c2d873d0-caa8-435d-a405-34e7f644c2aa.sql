@@ -23,8 +23,3 @@ CREATE POLICY "Users can view own tier access"
 ON public.user_tier_access
 FOR SELECT
 USING (auth.uid() = user_id);
-
-CREATE POLICY "Admins can view all profiles"
-ON public.profiles
-FOR SELECT
-USING (public.has_role(auth.uid(), 'admin'));

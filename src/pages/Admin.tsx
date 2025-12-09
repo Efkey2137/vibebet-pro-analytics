@@ -37,7 +37,7 @@ const quickPicks = [
   "1X", "X2", "12", 
   "HWEH", "AWEH", 
   "Over 1.5 Goals", "Over 2.5 Goals", 
-  "BTTS Tak", "BTTS Nie"
+  "BTTS"
 ];
 
 interface TierStats {
@@ -354,7 +354,7 @@ export default function Admin() {
                         value={odds} 
                         onChange={(e) => setOdds(e.target.value)}
                         placeholder="np. 1.85"
-                        required
+                        
                       />
                     </div>
                     <div className="space-y-2">
