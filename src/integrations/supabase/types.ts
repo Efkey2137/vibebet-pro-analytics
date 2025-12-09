@@ -139,6 +139,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_tier_access: {
+        Row: {
+          expires_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          pricing_tier: Database["public"]["Enums"]["pricing_tier"]
+          user_id: string
+        }
+        Insert: {
+          expires_at: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          pricing_tier: Database["public"]["Enums"]["pricing_tier"]
+          user_id: string
+        }
+        Update: {
+          expires_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          pricing_tier?: Database["public"]["Enums"]["pricing_tier"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

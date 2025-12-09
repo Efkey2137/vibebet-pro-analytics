@@ -28,6 +28,7 @@ export default function Index() {
   const [selectedTier, setSelectedTier] = useState('all');
   const [loading, setLoading] = useState(true);
   const [purchasedTipIds, setPurchasedTipIds] = useState<string[]>([]);
+  const [userTierAccess, setUserTierAccess] = useState<string[]>([]); // Aktywne dostępy do tierów
   
   // ZMIANA: Pobieramy isAdmin
   const { user, isAdmin } = useAuth();
@@ -37,6 +38,7 @@ export default function Index() {
     fetchTips();
     if (user) {
       fetchPurchases();
+      fetchUserTierAccess();
     }
   }, [user]);
 
@@ -73,6 +75,20 @@ export default function Index() {
     
     if (data) {
       setPurchasedTipIds(data.map(p => p.tip_id));
+    }
+  };
+
+  const fetchUserTierAccess = async () => {
+    if (!user) return;
+    const now = new Date().toISOString();
+    const { data } = await supabase
+      .from('user_tier_access')
+      .select('pricing_tier')
+      .eq('user_id', user.id)
+      .gt('expires_at', now);
+    
+    if (data) {
+      setUserTierAccess(data.map(a => a.pricing_tier));
     }
   };
 
@@ -157,7 +173,10 @@ export default function Index() {
   // ZMIANA: Funkcja sprawdzająca czy typ jest odblokowany (dla Admina zawsze TRUE)
   const isUnlocked = (tip: Tip) => {
     if (isAdmin) return true; // Admin widzi wszystko
-    return tip.pricing_tier === 'Free' || purchasedTipIds.includes(tip.id);
+    if (tip.pricing_tier === 'Free') return true;
+    if (purchasedTipIds.includes(tip.id)) return true;
+    if (userTierAccess.includes(tip.pricing_tier)) return true; // Ma aktywny dostęp do tego tieru
+    return false;
   };
 
   const isAddedToMyTips = (tip: Tip) => {

@@ -24,7 +24,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
-import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3, Trash2, Undo2 } from 'lucide-react';
+import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3, Trash2, Undo2, Users } from 'lucide-react';
+import { UserAccessManager } from '@/components/admin/UserAccessManager';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -274,6 +275,10 @@ export default function Admin() {
               <TabsTrigger value="stats" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Statystyki
+              </TabsTrigger>
+              <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Users className="w-4 h-4 mr-2" />
+                Użytkownicy
               </TabsTrigger>
             </TabsList>
 
@@ -552,6 +557,11 @@ export default function Admin() {
                   </table>
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Users Tab */}
+            <TabsContent value="users">
+              <UserAccessManager />
             </TabsContent>
           </Tabs>
         </div>
