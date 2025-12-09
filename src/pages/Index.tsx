@@ -126,9 +126,33 @@ export default function Index() {
     }
   };
 
+  // Helpers do filtrowania po dacie
+  const isToday = (date: string) => {
+    const tipDate = new Date(date);
+    const today = new Date();
+    return tipDate.toDateString() === today.toDateString();
+  };
+
+  const isYesterday = (date: string) => {
+    const tipDate = new Date(date);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return tipDate.toDateString() === yesterday.toDateString();
+  };
+
+  const isTodayOrYesterday = (date: string) => {
+    return isToday(date) || isYesterday(date);
+  };
+
+  // Typy tylko na dziś (do wyświetlania ilości w kafelkach kategorii)
+  const todayTips = tips.filter(t => isToday(t.match_date));
+
+  // Typy z dziś i wczoraj (do wyświetlania po wejściu w kategorię)
+  const recentTips = tips.filter(t => isTodayOrYesterday(t.match_date));
+
   const filteredTips = selectedTier === 'all' 
-    ? tips 
-    : tips.filter(t => t.pricing_tier === selectedTier);
+    ? recentTips 
+    : recentTips.filter(t => t.pricing_tier === selectedTier);
 
   // ZMIANA: Funkcja sprawdzająca czy typ jest odblokowany (dla Admina zawsze TRUE)
   const isUnlocked = (tip: Tip) => {
@@ -140,12 +164,13 @@ export default function Index() {
     return purchasedTipIds.includes(tip.id);
   };
 
+  // Grupy kategorii - liczba typów NA DZIŚ
   const availableGroups = selectedTier === 'all' 
     ? Object.entries(tierDescriptions)
         .map(([tier, info]) => ({
           tier,
           ...info,
-          count: tips.filter(t => t.pricing_tier === tier).length
+          count: todayTips.filter(t => t.pricing_tier === tier).length
         }))
         .filter(group => group.count > 0)
     : [];
