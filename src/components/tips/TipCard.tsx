@@ -168,21 +168,15 @@ export function TipCard({
                 </div>
               ))}
             </div>
-            <div className="bg-primary/10 rounded-lg p-3 text-center border border-primary/20">
-              <p className="text-xs text-muted-foreground mb-1">Łączny kurs</p>
-              <p className="text-lg font-bold text-primary">{tip.odds.toFixed(2)}</p>
-            </div>
+            {/* USUNIĘTO: Sekcję wyświetlającą łączny kurs dla Bet Buildera */}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="mb-4">
             <div className="bg-secondary/50 rounded-lg p-3 text-center">
               <p className="text-xs text-muted-foreground mb-1">Typ</p>
               <p className="text-sm font-semibold text-foreground truncate">{tip.pick}</p>
             </div>
-            <div className="bg-secondary/50 rounded-lg p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Kurs</p>
-              <p className="text-sm font-semibold text-primary">{tip.odds.toFixed(2)}</p>
-            </div>
+            {/* USUNIĘTO: Sekcję wyświetlającą kurs dla pojedynczego typu */}
           </div>
         )}
 

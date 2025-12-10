@@ -161,14 +161,18 @@ export default function Index() {
     return isToday(date) || isYesterday(date);
   };
 
-  // Typy tylko na dziś (do wyświetlania ilości w kafelkach kategorii)
+  // Typy tylko na dziś
   const todayTips = tips.filter(t => isToday(t.match_date));
 
-  // Typy z dziś i wczoraj (do wyświetlania po wejściu w kategorię)
+  // Typy z dziś i wczoraj
   const recentTips = tips.filter(t => isTodayOrYesterday(t.match_date));
 
-  // Grupuj typy na te same mecze w bet buildery
-  const groupedTips = useMemo(() => groupTipsByMatch(recentTips), [recentTips]);
+  // ZMIANA: Wybór puli typów w zależności od roli
+  // Admin widzi typy z dziś i wczoraj (recentTips), Klient tylko z dziś (todayTips)
+  const displayTips = isAdmin ? recentTips : todayTips;
+
+  // Grupuj typy na te same mecze w bet buildery (używamy przefiltrowanej listy displayTips)
+  const groupedTips = useMemo(() => groupTipsByMatch(displayTips), [displayTips]);
 
   const filteredTips = selectedTier === 'all' 
     ? groupedTips 
@@ -187,13 +191,14 @@ export default function Index() {
     return purchasedTipIds.includes(tip.id);
   };
 
-  // Grupy kategorii - liczba typów NA DZIŚ
+  // Grupy kategorii - liczba typów (zależna od widoku: Admin vs Klient)
   const availableGroups = selectedTier === 'all' 
     ? Object.entries(tierDescriptions)
         .map(([tier, info]) => ({
           tier,
           ...info,
-          count: todayTips.filter(t => t.pricing_tier === tier).length
+          // ZMIANA: Liczymy count na podstawie displayTips (czyli dla admina today+yesterday, dla klienta today)
+          count: displayTips.filter(t => t.pricing_tier === tier).length
         }))
         .filter(group => group.count > 0)
     : [];
