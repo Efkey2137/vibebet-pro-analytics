@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { groupTipsByMatch } from '@/lib/groupTipsByMatch';
 import { Zap, Shield, TrendingUp, ChevronRight, Loader2, Brain, Cpu, Binary, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -166,9 +167,12 @@ export default function Index() {
   // Typy z dziś i wczoraj (do wyświetlania po wejściu w kategorię)
   const recentTips = tips.filter(t => isTodayOrYesterday(t.match_date));
 
+  // Grupuj typy na te same mecze w bet buildery
+  const groupedTips = useMemo(() => groupTipsByMatch(recentTips), [recentTips]);
+
   const filteredTips = selectedTier === 'all' 
-    ? recentTips 
-    : recentTips.filter(t => t.pricing_tier === selectedTier);
+    ? groupedTips 
+    : groupedTips.filter(t => t.pricing_tier === selectedTier);
 
   // ZMIANA: Funkcja sprawdzająca czy typ jest odblokowany (dla Admina zawsze TRUE)
   const isUnlocked = (tip: Tip) => {
