@@ -158,16 +158,33 @@ export function TipCard({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-secondary/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Typ</p>
-            <p className="text-sm font-semibold text-foreground truncate">{tip.pick}</p>
+        {tip.is_bet_builder && tip.pick.includes(' | ') ? (
+          <div className="mb-4 space-y-2">
+            <p className="text-xs text-muted-foreground">Typy:</p>
+            <div className="space-y-1">
+              {tip.pick.split(' | ').map((pick, idx) => (
+                <div key={idx} className="bg-secondary/50 rounded-lg px-3 py-2 text-sm font-semibold text-foreground">
+                  {pick}
+                </div>
+              ))}
+            </div>
+            <div className="bg-primary/10 rounded-lg p-3 text-center border border-primary/20">
+              <p className="text-xs text-muted-foreground mb-1">Łączny kurs</p>
+              <p className="text-lg font-bold text-primary">{tip.odds.toFixed(2)}</p>
+            </div>
           </div>
-          <div className="bg-secondary/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Kurs</p>
-            <p className="text-sm font-semibold text-primary">{tip.odds.toFixed(2)}</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-secondary/50 rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Typ</p>
+              <p className="text-sm font-semibold text-foreground truncate">{tip.pick}</p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Kurs</p>
+              <p className="text-sm font-semibold text-primary">{tip.odds.toFixed(2)}</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {tip.analysis && (isUnlocked || isFree) && (
           <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
