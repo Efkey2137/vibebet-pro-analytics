@@ -24,8 +24,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
-import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3, Trash2, Undo2, Users } from 'lucide-react';
+import { Loader2, Plus, CheckCircle, XCircle, RotateCcw, Upload, BarChart3, Trash2, Undo2, Users, Pencil, X } from 'lucide-react';
 import { UserAccessManager } from '@/components/admin/UserAccessManager';
+import { TipEditDialog } from '@/components/admin/TipEditDialog';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -59,15 +60,29 @@ export default function Admin() {
   const [submitting, setSubmitting] = useState(false);
   const [tierStats, setTierStats] = useState<TierStats[]>([]);
   
+  // Edit dialog state
+  const [editingTip, setEditingTip] = useState<Tip | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  
   // Form state
   const [homeTeam, setHomeTeam] = useState('');
   const [awayTeam, setAwayTeam] = useState('');
   const [league, setLeague] = useState('');
-  const [pick, setPick] = useState('');
+  const [picks, setPicks] = useState<string[]>(['']);
   const [odds, setOdds] = useState('');
   const [pricingTier, setPricingTier] = useState('Free');
   const [analysis, setAnalysis] = useState('');
   const [isBetBuilder, setIsBetBuilder] = useState(false);
+
+  const addPick = () => setPicks([...picks, '']);
+  const removePick = (index: number) => {
+    if (picks.length > 1) setPicks(picks.filter((_, i) => i !== index));
+  };
+  const updatePick = (index: number, value: string) => {
+    const newPicks = [...picks];
+    newPicks[index] = value;
+    setPicks(newPicks);
+  };
   
   useEffect(() => {
     if (!authLoading) {
@@ -139,13 +154,15 @@ export default function Admin() {
     setSubmitting(true);
 
     try {
+      const combinedPick = picks.filter(p => p.trim()).join(' | ');
+      
       const { error } = await supabase.from('tips').insert({
         home_team: homeTeam,
         away_team: awayTeam,
         league,
         match_date: new Date().toISOString(),
-        pick,
-        odds: parseFloat(odds),
+        pick: combinedPick,
+        odds: odds ? parseFloat(odds) : 1,
         stake: 10,
         pricing_tier: pricingTier as "Free" | "10 PLN" | "20 PLN" | "40 PLN" | "75 PLN" | "100 PLN",
         analysis: analysis || null,
@@ -158,7 +175,7 @@ export default function Admin() {
       setHomeTeam('');
       setAwayTeam('');
       setLeague('');
-      setPick('');
+      setPicks(['']);
       setOdds('');
       setPricingTier('Free');
       setAnalysis('');
@@ -171,6 +188,11 @@ export default function Admin() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEditTip = (tip: Tip) => {
+    setEditingTip(tip);
+    setEditDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -318,6 +340,11 @@ export default function Admin() {
                     />
                   </div>
 
+                  <div className="flex items-center gap-3 pb-2">
+                    <Switch checked={isBetBuilder} onCheckedChange={setIsBetBuilder} />
+                    <Label>Bet Builder (wiele typów)</Label>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Typ (Pick)</Label>
                     
@@ -329,24 +356,52 @@ export default function Admin() {
                           variant="outline"
                           size="sm"
                           className="text-xs h-8"
-                          onClick={() => setPick(qp)}
+                          onClick={() => updatePick(picks.length - 1, qp)}
                         >
                           {qp}
                         </Button>
                       ))}
                     </div>
 
-                    <Input 
-                      value={pick} 
-                      onChange={(e) => setPick(e.target.value)}
-                      placeholder="Wpisz typ lub wybierz powyżej"
-                      required
-                    />
+                    {picks.map((pickItem, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <Input 
+                          value={pickItem} 
+                          onChange={(e) => updatePick(index, e.target.value)}
+                          placeholder={index === 0 ? "Wpisz typ lub wybierz powyżej" : "Dodatkowy typ"}
+                          required={index === 0}
+                        />
+                        {picks.length > 1 && (
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => removePick(index)}
+                            className="shrink-0 text-destructive hover:text-destructive"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+
+                    {isBetBuilder && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={addPick}
+                        className="mt-2"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Dodaj typ
+                      </Button>
+                    )}
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Kurs</Label>
+                      <Label>Kurs (opcjonalnie)</Label>
                       <Input 
                         type="number"
                         step="0.01"
@@ -354,11 +409,10 @@ export default function Admin() {
                         value={odds} 
                         onChange={(e) => setOdds(e.target.value)}
                         placeholder="np. 1.85"
-                        
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Cena</Label>
+                      <Label>Pakiet</Label>
                       <Select value={pricingTier} onValueChange={setPricingTier}>
                         <SelectTrigger>
                           <SelectValue />
@@ -380,11 +434,6 @@ export default function Admin() {
                       placeholder="Szczegółowa analiza meczu..."
                       rows={4}
                     />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Switch checked={isBetBuilder} onCheckedChange={setIsBetBuilder} />
-                    <Label>Bet Builder</Label>
                   </div>
 
                   <Button type="submit" variant="neon" size="lg" disabled={submitting}>
@@ -418,6 +467,14 @@ export default function Admin() {
                             <p className="text-sm text-primary mt-1">{tip.pick} @ {tip.odds}</p>
                           </div>
                           <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleEditTip(tip)}
+                            >
+                              <Pencil className="w-4 h-4 mr-1" />
+                              Edytuj
+                            </Button>
                             <Button 
                               variant="won" 
                               size="sm"
@@ -566,6 +623,13 @@ export default function Admin() {
           </Tabs>
         </div>
       </main>
+
+      <TipEditDialog 
+        tip={editingTip}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSaved={fetchAllTips}
+      />
 
       <Footer />
     </div>
